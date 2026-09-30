@@ -21,7 +21,7 @@ from server import PromptServer
 
 
 LOGGER = logging.getLogger("comfyui.load_next_image")
-SUPPORTED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif"}
+SUPPORTED_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tiff", ".tif", ".avif"}
 NATURAL_SORT_PARTS = re.compile(r"(\d+)")
 NEXT_IMAGE_OPTION = "Next image (saved index)"
 
