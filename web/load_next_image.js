@@ -44,7 +44,6 @@ function ensureImageCombo(node) {
             existingCallback?.(value);
             if (value !== NEXT_IMAGE_OPTION) {
                 previewImageSelection(node, value);
-                queueExecution();
             }
         },
         { values: [NEXT_IMAGE_OPTION] },
@@ -87,17 +86,6 @@ async function updateImageChoices(node) {
         node.graph?.setDirtyCanvas(true, true);
     } catch (error) {
         console.error("[LoadNextImageFromDirectory] Could not refresh image choices.", error);
-    }
-}
-
-function queueExecution() {
-    try {
-        const queued = app.queuePrompt(0, 1);
-        queued?.catch((error) => {
-            console.error("[LoadNextImageFromDirectory] Could not queue execution.", error);
-        });
-    } catch (error) {
-        console.error("[LoadNextImageFromDirectory] Could not queue execution.", error);
     }
 }
 
@@ -170,7 +158,9 @@ function queueNavigation(node, direction) {
             console.error("[LoadNextImageFromDirectory] The image list is out of date; refresh it and retry.");
             return;
         }
-    } else if (direction < 0) {
+    } else if (direction > 0 && choices.length > 0) {
+        choice = choices[0];
+    } else {
         console.warn("[LoadNextImageFromDirectory] Run the node once before using Previous.");
         return;
     }
@@ -183,7 +173,11 @@ function queueNavigation(node, direction) {
 
     selector.value = choice;
     node.graph?.setDirtyCanvas(true, true);
-    queueExecution();
+    if (choice !== NEXT_IMAGE_OPTION && selector.callback) {
+        selector.callback(choice);
+    } else {
+        previewImageSelection(node, choice);
+    }
 }
 
 function restorePreview(node) {
