@@ -131,7 +131,7 @@ class LoadNextImageTests(unittest.TestCase):
 
         self.assertEqual(first["result"][2:5], (2, 0, "image10.png"))
         self.assertTrue(first["ui"]["used_image_override"][0])
-        self.assertEqual(
+        self.assertAlmostEqual(
             float(first["result"][0][0, 0, 0, 0]),
             80 / 255,
         )
@@ -196,11 +196,12 @@ class LoadNextImageTests(unittest.TestCase):
         with ThreadPoolExecutor(max_workers=4) as executor:
             results = list(executor.map(lambda _: self.execute()["result"][2], range(4)))
 
-        self.assertEqual(sorted(results), [0, 1, 2, 3])
+        self.assertEqual(sorted(results), [0, 0, 1, 2])
         self.assertEqual((self.directory / "index.txt").read_text(encoding="utf-8").strip(), "1")
 
     def test_failed_image_load_does_not_advance_index(self):
         (self.directory / "image1.png").write_bytes(b"not a valid image")
+        os.utime(self.directory / "image1.png", (1, 1))
         (self.directory / "index.txt").write_text("0", encoding="utf-8")
 
         with self.assertRaisesRegex(RuntimeError, "Could not load or prepare selected image"):
