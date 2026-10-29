@@ -56,6 +56,8 @@ class LoadNextImageTests(unittest.TestCase):
         Image.new("RGBA", (5, 3), (20, 80, 160, 100)).save(self.directory / "image1.png")
         Image.new("RGB", (4, 2), (160, 80, 20)).save(self.directory / "image2.png")
         Image.new("RGB", (3, 2), (80, 160, 20)).save(self.directory / "image10.png")
+        for timestamp, filename in enumerate(("image1.png", "image2.png", "image10.png"), 1):
+            os.utime(self.directory / filename, (timestamp, timestamp))
         (self.directory / "ignored.txt").write_text("not an image", encoding="utf-8")
         (self.directory / "nested").mkdir()
 
@@ -65,7 +67,7 @@ class LoadNextImageTests(unittest.TestCase):
     def execute(self):
         return MODULE.LoadNextImageFromDirectory().load_next_image(str(self.directory))
 
-    def test_natural_order_batch_and_wraparound(self):
+    def test_modification_time_order_batch_and_wraparound(self):
         first = self.execute()
         second = self.execute()
         third = self.execute()
@@ -83,6 +85,31 @@ class LoadNextImageTests(unittest.TestCase):
         self.assertEqual(float(second["result"][1].max()), 0.0)
         self.assertEqual(first["result"][0].dtype, MODULE.torch.float32)
         self.assertEqual((self.directory / "index.txt").read_text(encoding="utf-8").strip(), "1")
+
+    def test_images_are_sorted_by_modification_time(self):
+        os.utime(self.directory / "image1.png", (3, 3))
+        os.utime(self.directory / "image2.png", (1, 1))
+        os.utime(self.directory / "image10.png", (2, 2))
+
+        result = self.execute()
+
+        self.assertEqual(result["result"][4], "image2.png")
+        self.assertEqual(
+            result["ui"]["image_choices"][0],
+            ["image2.png", "image10.png", "image1.png"],
+        )
+
+    def test_saved_index_is_reread_on_each_execution(self):
+        node = MODULE.LoadNextImageFromDirectory()
+        index_path = self.directory / "index.txt"
+        index_path.write_text("2", encoding="utf-8")
+
+        first = node.load_next_image(str(self.directory))
+        index_path.write_text("1", encoding="utf-8")
+        second = node.load_next_image(str(self.directory))
+
+        self.assertEqual(first["result"][2:5], (2, 0, "image10.png"))
+        self.assertEqual(second["result"][2:5], (1, 2, "image2.png"))
 
     def test_invalid_index_resets_and_no_images_does_not_change_index(self):
         (self.directory / "index.txt").write_text("-1", encoding="utf-8")

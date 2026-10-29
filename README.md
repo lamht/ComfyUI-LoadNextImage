@@ -12,7 +12,9 @@ The ZIP is laid out with this folder at its root. The directory path is resolved
 
 ## Use
 
-Enter an image directory and queue the workflow. Each execution loads the current item in natural filename order, then advances `index.txt`; after the last image, the next index wraps to `0`. Supported extensions are `.png`, `.jpg`, `.jpeg`, `.webp`, `.bmp`, `.tiff`, and `.tif`. Subdirectories and other files are ignored.
+Enter an image directory and queue the workflow. Each execution lists supported files in ascending last-modified time, loads the item at the position stored in `index.txt`, then saves the following position; after the last image, the next index wraps to `0`. Files with identical modification times are ordered by natural filename. Supported extensions are `.png`, `.jpg`, `.jpeg`, `.webp`, `.bmp`, `.tiff`, and `.tif`. Subdirectories and other files are ignored.
+
+For details on how additions, removals, timestamp changes, and manual selections affect the saved position, see [image selection and index behavior](docs/architecture/image-selection.md).
 
 The **image** input is a dropdown, not a text field, populated with supported image filenames from the chosen directory. Selecting a filename immediately displays that image and its sorted index in the node preview; **Previous** and **Next** likewise change the preview without queuing the workflow. When you manually queue the workflow, the selected file is returned as `IMAGE`, its position is reported as `current_index`, and the following position is saved as `next_index` in `index.txt`. The preview itself never advances or changes the persistent index. After a selected-file execution, the dropdown resets to **Next image (saved index)**; leaving it there continues the saved sequence on subsequent runs. **Previous** is available after the node has a preview for the current directory. Change the directory to refresh its image list.
 
@@ -33,7 +35,7 @@ Connect `IMAGE` to downstream image processing or `Save Image`. The workflow in 
 
 1. Put at least three supported images in a writable test directory with names such as `image1.png`, `image2.png`, and `image10.png`. Connect the node to **Image Scale** and **Save Image**.
 2. Remove `index.txt`, queue once, and confirm the preview says `Current Index: 0`, `Next Index: 1`, and `index.txt` contains `1`.
-3. Queue repeatedly; confirm filename order is natural, the preview's current index matches the returned filename, and the index wraps from the last image to `0`.
+3. Queue repeatedly; confirm filename order follows ascending last-modified time, the preview's current index matches the returned filename, and the index wraps from the last image to `0`.
 4. Select a filename in the **image** selector and use **Previous** or **Next**; confirm each action changes only the preview and does not change `index.txt` or queue the workflow. Manually queue to process the selected image and save the following index. Confirm the selector returns to **Next image (saved index)** and the next execution continues from that saved position.
 5. Save the workflow after execution, refresh the ComfyUI browser page, reopen that workflow, and confirm its image and execution details reappear without changing `index.txt`. Queue again and verify the next image is selected.
 6. Restart ComfyUI and queue again. It should continue from the persisted index. To verify error handling, try an empty directory and confirm the node errors without modifying any existing `index.txt`.

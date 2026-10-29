@@ -49,7 +49,10 @@ def _list_images(directory: Path) -> list[Path]:
     except OSError as exc:
         raise OSError(f"Cannot scan image directory '{directory}': {exc}") from exc
 
-    return sorted(images, key=lambda path: _natural_sort_key(path.name))
+    return sorted(
+        images,
+        key=lambda path: (path.stat().st_mtime_ns, _natural_sort_key(path.name)),
+    )
 
 
 @contextmanager
