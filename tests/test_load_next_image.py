@@ -127,6 +127,7 @@ class LoadNextImageTests(unittest.TestCase):
         first = MODULE.LoadNextImageFromDirectory().load_next_image(
             str(self.directory), image="image10.png"
         )
+        self.assertEqual((self.directory / "index.txt").read_text(encoding="utf-8").strip(), "0")
         following = self.execute()
 
         self.assertEqual(first["result"][2:5], (2, 0, "image10.png"))
@@ -135,8 +136,8 @@ class LoadNextImageTests(unittest.TestCase):
             float(first["result"][0][0, 0, 0, 0]),
             80 / 255,
         )
-        self.assertEqual((self.directory / "index.txt").read_text(encoding="utf-8").strip(), "0")
         self.assertEqual(following["result"][2:5], (0, 1, "image1.png"))
+        self.assertEqual((self.directory / "index.txt").read_text(encoding="utf-8").strip(), "1")
         self.assertFalse(following["ui"]["used_image_override"][0])
 
     def test_preview_and_image_match_the_selected_filename(self):
