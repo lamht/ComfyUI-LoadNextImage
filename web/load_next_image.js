@@ -83,10 +83,108 @@ async function updateImageChoices(node) {
             selector.value = NEXT_IMAGE_OPTION;
         }
         node._loadNextImageChoices = data.images || [];
+        if (selector.value !== NEXT_IMAGE_OPTION) {
+            previewImageSelection(node, selector.value);
+        }
         node.graph?.setDirtyCanvas(true, true);
     } catch (error) {
         console.error("[LoadNextImageFromDirectory] Could not refresh image choices.", error);
     }
+}
+
+function ensurePreviewWidget(node) {
+    if (node._loadNextPreviewWidget) {
+        return node._loadNextPreviewWidget;
+    }
+
+    const frame = document.createElement("div");
+    frame.style.cssText = `
+        width: ${PREVIEW_WIDTH}px;
+        height: ${PREVIEW_HEIGHT}px;
+        position: relative;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        background: #17191d;
+        border: 1px solid #484d56;
+        box-sizing: border-box;
+    `;
+
+    const image = document.createElement("img");
+    image.alt = "Selected image preview";
+    image.style.cssText = "width: 100%; height: 100%; object-fit: contain; display: none;";
+    frame.append(image);
+
+    const placeholder = document.createElement("span");
+    placeholder.textContent = "Select an image or run the node to preview";
+    placeholder.style.cssText = "padding: 12px; color: #aeb4bf; font: 13px sans-serif; text-align: center;";
+    frame.append(placeholder);
+
+    const details = document.createElement("div");
+    details.style.cssText = `
+        width: ${PREVIEW_WIDTH}px;
+        color: #e3e6eb;
+        font: 12px sans-serif;
+        line-height: 16px;
+        white-space: pre-line;
+        overflow-wrap: anywhere;
+    `;
+
+    const element = document.createElement("div");
+    element.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        width: 100%;
+        padding: 6px 0;
+        box-sizing: border-box;
+    `;
+    element.append(frame, details);
+
+    const widget = node.addDOMWidget("image_preview", "load_next_image_preview", element, {
+        hideOnZoom: false,
+        getMinHeight: () => PREVIEW_HEIGHT + 52,
+        surfaces: { canvas: "never", vueNode: "shown", panel: "never" },
+    });
+    widget.serialize = false;
+    widget.options.serialize = false;
+
+    const previewWidget = { image, placeholder, details };
+    node._loadNextPreviewWidget = previewWidget;
+    return previewWidget;
+}
+
+function updatePreviewWidget(node) {
+    const { image, placeholder, details } = ensurePreviewWidget(node);
+    const saved = node.properties?.[PROPERTY_NAME];
+
+    if (!saved?.preview) {
+        image.style.display = "none";
+        placeholder.style.display = "block";
+        placeholder.textContent = "Select an image or run the node to preview";
+        details.textContent = "";
+        return;
+    }
+
+    const source = `data:image/jpeg;base64,${saved.preview}`;
+    if (image.src !== source) {
+        image.src = source;
+    }
+    image.style.display = "block";
+    placeholder.style.display = "none";
+
+    const lines = [
+        `Current Index: ${saved.currentIndex}`,
+        `Next Index: ${saved.nextIndex}`,
+        `Total Images: ${saved.totalImages}`,
+        `Filename: ${saved.filename || ""}`,
+    ];
+    if (saved.warning) {
+        lines.push(`Warning: ${saved.warning}`);
+    }
+    details.textContent = lines.join("\n");
 }
 
 async function previewImageSelection(node, filename) {
@@ -121,6 +219,7 @@ async function previewImageSelection(node, filename) {
         node.properties = node.properties || {};
         node.properties[PROPERTY_NAME] = saved;
         node._loadNextPreviewSource = data.preview;
+        updatePreviewWidget(node);
 
         const image = new Image();
         image.onload = () => {
@@ -182,6 +281,7 @@ function queueNavigation(node, direction) {
 
 function restorePreview(node) {
     const saved = node.properties?.[PROPERTY_NAME];
+    updatePreviewWidget(node);
     if (!saved?.preview || node._loadNextPreviewSource === saved.preview) {
         return;
     }
@@ -216,6 +316,7 @@ app.registerExtension({
             this.size[1] = Math.max(this.size[1], MIN_NODE_HEIGHT);
             this.addWidget("button", "Previous", null, () => queueNavigation(this, -1));
             this.addWidget("button", "Next", null, () => queueNavigation(this, 1));
+            ensurePreviewWidget(this);
 
             ensureImageCombo(this);
 
@@ -239,6 +340,7 @@ app.registerExtension({
             this.size[0] = Math.max(this.size[0], PREVIEW_WIDTH + 32);
             this.size[1] = Math.max(this.size[1], MIN_NODE_HEIGHT);
             ensureImageCombo(this);
+            ensurePreviewWidget(this);
             updateImageChoices(this);
             restorePreview(this);
             return result;
@@ -265,6 +367,7 @@ app.registerExtension({
             this.properties = this.properties || {};
             this.properties[PROPERTY_NAME] = saved;
             this._loadNextPreviewSource = preview;
+            updatePreviewWidget(this);
 
             const images = first(message.image_choices);
             if (Array.isArray(images)) {
@@ -297,9 +400,9 @@ app.registerExtension({
             this.graph?.setDirtyCanvas(true, true);
         };
 
-        const onDrawBackground = nodeType.prototype.onDrawBackground;
-        nodeType.prototype.onDrawBackground = function (ctx) {
-            onDrawBackground?.apply(this, arguments);
+        const onDrawForeground = nodeType.prototype.onDrawForeground;
+        nodeType.prototype.onDrawForeground = function (ctx) {
+            onDrawForeground?.apply(this, arguments);
             restorePreview(this);
 
             const saved = this.properties?.[PROPERTY_NAME];
