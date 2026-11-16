@@ -297,9 +297,9 @@ app.registerExtension({
             this.graph?.setDirtyCanvas(true, true);
         };
 
-        const onDrawForeground = nodeType.prototype.onDrawForeground;
-        nodeType.prototype.onDrawForeground = function (ctx) {
-            onDrawForeground?.apply(this, arguments);
+        const onDrawBackground = nodeType.prototype.onDrawBackground;
+        nodeType.prototype.onDrawBackground = function (ctx) {
+            onDrawBackground?.apply(this, arguments);
             restorePreview(this);
 
             const saved = this.properties?.[PROPERTY_NAME];
